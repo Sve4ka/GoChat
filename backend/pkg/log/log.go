@@ -1,53 +1,43 @@
 package log
 
 import (
-	"github.com/rs/zerolog"
 	"os"
-	"time"
+
+	"github.com/rs/zerolog"
 )
 
-type Logs struct {
+var Log = MustInitLogger()
+
+type Logger struct {
 	infoLogger  *zerolog.Logger
 	errorLogger *zerolog.Logger
+	infoLevel   zerolog.Level
+	errorLevel  zerolog.Level
 }
 
-func (l *Logs) Info(s string) {
-	l.infoLogger.Info().Msg(s)
+func (l *Logger) Info(s string) {
+	l.infoLogger.WithLevel(l.infoLevel).Caller(1).Msg(s)
 }
 
-func (l *Logs) Error(s string) {
-	l.errorLogger.Error().Msg(s)
+func (l *Logger) Error(s error) {
+	l.errorLogger.WithLevel(l.errorLevel).Caller(1).Msg(s.Error())
 }
 
-func UnitFormatter() {
-	zerolog.TimestampFunc = func() time.Time {
-		format := "2006-01-02 15:04:05"
-		timeString := time.Now().Format(format)
-		timeFormatted, _ := time.Parse(format, timeString)
-		return timeFormatted
-	}
-}
+func MustInitLogger() *Logger {
+	zerolog.TimeFieldFormat = "15:04:05 02-01-2006"
 
-func InitLogger() (*Logs, *os.File, *os.File) {
-	UnitFormatter()
+	infoLevel := zerolog.InfoLevel
+	errorLevel := zerolog.ErrorLevel
 
-	loggerInfoFile, err := os.OpenFile("log/info.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
-	if err != nil {
-		panic("Error opening info log file")
-	}
+	infoLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	errorLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 
-	loggerErrorFile, err := os.OpenFile("log/error.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
-	if err != nil {
-		panic("Error opening error log file")
-	}
-
-	infoLogger := zerolog.New(loggerInfoFile).With().Timestamp().Caller().Logger()
-	errorLogger := zerolog.New(loggerErrorFile).With().Timestamp().Caller().Logger()
-
-	log := &Logs{
+	log := &Logger{
 		infoLogger:  &infoLogger,
 		errorLogger: &errorLogger,
+		infoLevel:   infoLevel,
+		errorLevel:  errorLevel,
 	}
 
-	return log, loggerInfoFile, loggerErrorFile
+	return log
 }

@@ -3,22 +3,21 @@ package main
 import (
 	"backend/internal/delivery"
 	"backend/pkg/config"
-	"backend/pkg/database"
 	"backend/pkg/log"
+	"backend/pkg/postgres"
 )
 
 func main() {
-	log, loggerInfoFile, loggerErrorFile := log.InitLogger()
 
-	defer loggerInfoFile.Close()
-	defer loggerErrorFile.Close()
+	cfg := config.InitConfig()
 
-	config.InitConfig()
-	log.Info("Config initialized")
+	log.Log.Info("Config Initialized")
 
-	db := database.GetDB()
-	log.Info("Database initialized")
+	db := postgres.MustInitPg(cfg)
+	defer db.Close()
 
-	delivery.Start(db, log)
+	log.Log.Info("PG Initialized")
+
+	delivery.Start(db)
 
 }

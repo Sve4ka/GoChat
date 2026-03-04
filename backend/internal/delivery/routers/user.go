@@ -4,16 +4,15 @@ import (
 	"backend/internal/delivery/handlers"
 	"backend/internal/repository/user"
 	userserv "backend/internal/service/user"
-	"backend/pkg/log"
+	"backend/pkg/postgres"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 )
 
-func RegisterUserRouter(r *gin.Engine, db *sqlx.DB, logger *log.Logs) *gin.RouterGroup {
+func RegisterUserRouter(r *gin.Engine, db *postgres.Pg) *gin.RouterGroup {
 	userRouter := r.Group("/user")
 
 	userRepo := user.InitUserRepository(db)
-	userService := userserv.InitUserService(userRepo, logger)
+	userService := userserv.InitUserService(userRepo)
 	userHandler := handlers.InitUserHandler(userService)
 
 	userRouter.POST("/", userHandler.Create)

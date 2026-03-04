@@ -3,16 +3,15 @@ package routers
 import (
 	"backend/internal/delivery/handlers"
 	"backend/internal/repository/chat"
-	"backend/pkg/log"
+	"backend/pkg/postgres"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 )
 
-func RegisterChatRouter(r *gin.Engine, db *sqlx.DB, logger *log.Logs) *gin.RouterGroup {
+func RegisterChatRouter(r *gin.Engine, db *postgres.Pg) *gin.RouterGroup {
 	chatRouter := r.Group("/ws")
 
 	chatRepo := chat.InitChatRepository(db)
-	chatHandler := handlers.InitChatHandler(chatRepo, logger)
+	chatHandler := handlers.InitChatHandler(chatRepo)
 	chatRouter.POST("/chat/:userID", chatHandler.CreateChat)
 	chatRouter.GET("/chat/user/:id", chatHandler.GetChats)
 	chatRouter.GET("/chat/:id", chatHandler.WSEndpoint)

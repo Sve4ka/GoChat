@@ -5,7 +5,6 @@ import (
 	"backend/internal/repository"
 	"backend/pkg/log"
 	"context"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -17,15 +16,14 @@ import (
 
 type ChatHandler struct {
 	repo  repository.ChatRepo
-	log   *log.Logs
 	chats map[int]map[string]*websocket.Conn
 	mutex sync.Mutex
 }
 
-func InitChatHandler(repo repository.ChatRepo, logs *log.Logs) ChatHandler {
+func InitChatHandler(repo repository.ChatRepo) ChatHandler {
 	chats := make(map[int]map[string]*websocket.Conn)
 
-	return ChatHandler{repo: repo, log: logs, chats: chats}
+	return ChatHandler{repo: repo, chats: chats}
 }
 
 var upgrader = websocket.Upgrader{
@@ -41,12 +39,12 @@ func (h *ChatHandler) WSEndpoint(c *gin.Context) {
 	id := c.Param("id")
 	chatID, err := strconv.Atoi(id)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		c.JSON(418, gin.H{"error": err.Error()})
 	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		return
 	}
 	clientID := uuid.New().String()
@@ -84,16 +82,14 @@ func (h *ChatHandler) reader(conn *websocket.Conn, clientID string, done chan<- 
 		var msg models.MessageBase
 		err := conn.ReadJSON(&getMSG)
 		if err != nil {
-			h.log.Error(err.Error())
+			log.Log.Error(err)
 			break
 		}
-		fmt.Println(getMSG)
 
 		parsedTime, err := time.Parse("Mon Jan 02 2006 15:04:05 GMT-0700 (Москва, стандартное время)", getMSG.Timestamp)
 		parsedTime1, err1 := time.Parse("Mon Jan 02 2006 15:04:05 GMT-0700  (Moscow Standard Time)", getMSG.Timestamp)
-		fmt.Println(parsedTime, getMSG.Timestamp, err)
 		if err != nil && err1 != nil {
-			h.log.Error(err.Error())
+			log.Log.Error(err)
 			conn.WriteJSON(map[string]string{"error": "Invalid timestamp"})
 			continue
 		}
@@ -123,7 +119,6 @@ func (h *ChatHandler) reader(conn *websocket.Conn, clientID string, done chan<- 
 			conn.WriteJSON(map[string]string{"error": "Cant save message"})
 			continue
 		}
-		fmt.Println(newMsg)
 
 		h.writer(newMsg, clientID)
 	}
@@ -159,7 +154,7 @@ func (h *ChatHandler) writePump(conn *websocket.Conn, clientID string, done <-ch
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
 			if err != nil {
-				h.log.Error(err.Error())
+				log.Log.Error(err)
 				return
 			}
 		case <-done:
@@ -175,7 +170,7 @@ func (h *ChatHandler) GetOldMessages(g *gin.Context) {
 	messages, err := h.repo.GetAllMessage(ctx)
 
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 		return
 	}
@@ -187,7 +182,7 @@ func (h *ChatHandler) GetChats(g *gin.Context) {
 	id := g.Param("id")
 	aid, err := strconv.Atoi(id)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -196,7 +191,7 @@ func (h *ChatHandler) GetChats(g *gin.Context) {
 	chats, err := h.repo.GetUsersChats(ctx, aid)
 
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 		return
 	}
@@ -204,7 +199,7 @@ func (h *ChatHandler) GetChats(g *gin.Context) {
 		var newChat models.Chat
 		newChat.ID, err = h.repo.Create(ctx, "Избранное", aid)
 		if err != nil {
-			h.log.Error(err.Error())
+			log.Log.Error(err)
 			g.JSON(418, gin.H{"error": err.Error()})
 			return
 		}
@@ -218,7 +213,7 @@ func (h *ChatHandler) GetMessages(g *gin.Context) {
 	id := g.Param("id")
 	aid, err := strconv.Atoi(id)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -226,7 +221,7 @@ func (h *ChatHandler) GetMessages(g *gin.Context) {
 
 	messages, err := h.repo.Chat(ctx, aid)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	var out []models.MessageBase
@@ -240,7 +235,7 @@ func (h *ChatHandler) CreateChat(g *gin.Context) {
 	id := g.Param("userID")
 	aid, err := strconv.Atoi(id)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	var newChat models.NewChat
@@ -254,7 +249,7 @@ func (h *ChatHandler) CreateChat(g *gin.Context) {
 
 	chatID, err := h.repo.Create(ctx, newChat.Name, aid)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	var chat models.Chat
@@ -267,13 +262,13 @@ func (h *ChatHandler) AddUser(g *gin.Context) {
 	idChat := g.Param("idChat")
 	chatID, err := strconv.Atoi(idChat)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	idUser := g.Param("idUser")
 	userID, err := strconv.Atoi(idUser)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -281,7 +276,7 @@ func (h *ChatHandler) AddUser(g *gin.Context) {
 
 	id, err := h.repo.AddUser(ctx, chatID, userID)
 	if err != nil {
-		h.log.Error(err.Error())
+		log.Log.Error(err)
 		g.JSON(418, gin.H{"error": err.Error()})
 	}
 	g.JSON(http.StatusOK, gin.H{"chat": id})

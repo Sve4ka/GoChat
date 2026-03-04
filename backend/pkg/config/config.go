@@ -1,33 +1,52 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"github.com/spf13/viper"
 	"os"
-	"path/filepath"
+	"time"
+
+	"backend/pkg/log"
+	"github.com/spf13/viper"
+)
+
+type Config struct {
+	PGName       string
+	PGUser       string
+	PGPassword   string
+	PGHost       string
+	PGPort       int
+	MaxPool      int32
+	PGTimeout    time.Duration
+	ConnAttempts int
+	ServiceHost  string
+	ServicePort  string
+	IsTest       bool
+}
+
+const (
+	PGName       = "PG_NAME"
+	PGUser       = "PG_USER"
+	PGPassword   = "PG_PASSWORD"
+	PGHost       = "PG_HOST"
+	PGPort       = "PG_PORT"
+	PGTimeout    = "PG_TIMEOUT"
+	PGMaxPool    = "PG_MAX_POOL"
+	ConnAttempts = "CONN_ATTEMPTS"
+	ServiceHost  = "SERVICE_HOST"
+	ServicePort  = "SERVICE_PORT"
 )
 
 const (
-	DBName     = "DB_NAME"
-	DBUser     = "DB_USER"
-	DBPassword = "DB_PASSWORD"
-	DBHost     = "DB_HOST"
-	DBPort     = "DB_PORT"
-
-	TimeOut           = "TIME_OUT"
-	JWTExpire         = "JWT_EXPIRE"
-	Secret            = "SECRET"
-	SessionExpiration = "SESSION_EXPIRATION"
-
-	RedisHost     = "REDIS_HOST"
-	RedisPassword = "REDIS_PASSWORD"
-	RedisPort     = "REDIS_PORT"
+	_defaultServiceHost = "localhost"
+	_defaultServicePort = "8080"
 )
 
-func InitConfig() {
-	envPath, _ := os.Getwd()
-	envPath = filepath.Join(envPath, "..")
-	envPath = filepath.Join(envPath, "/deploy")
+func InitConfig() *Config {
+	envPath, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("err getting work dir: %v", err.Error()))
+	}
 
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")
@@ -35,8 +54,28 @@ func InitConfig() {
 
 	viper.AutomaticEnv()
 
-	err := viper.ReadInConfig()
+	viper.SetDefault(ServiceHost, _defaultServiceHost)
+	viper.SetDefault(ServicePort, _defaultServicePort)
+
+	err = viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to init config. Error:%v", err.Error()))
+		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			log.Log.Info(fmt.Sprintf("config file not found: %v", envPath))
+		} else {
+			panic(fmt.Sprintf("err reading config: %v", err.Error()))
+		}
+	}
+
+	return &Config{
+		PGName:       viper.GetString(PGName),
+		PGUser:       viper.GetString(PGUser),
+		PGPassword:   viper.GetString(PGPassword),
+		PGHost:       viper.GetString(PGHost),
+		PGPort:       viper.GetInt(PGPort),
+		MaxPool:      viper.GetInt32(PGMaxPool),
+		PGTimeout:    viper.GetDuration(PGTimeout),
+		ConnAttempts: viper.GetInt(ConnAttempts),
+		ServiceHost:  viper.GetString(ServiceHost),
+		ServicePort:  viper.GetString(ServicePort),
 	}
 }
